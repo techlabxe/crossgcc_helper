@@ -1,0 +1,16 @@
+﻿うまくいった組み合わせ(ビルドのみ)
+
+[cygwin]
+  ------------------------------------------------
+  gmp=gmp-4.3.2
+  mpfr=mpfr-2.4.2
+  mpc=mpc-0.8.1
+  binutils=binutils-2.21.1
+  gcc=gcc-4.5.3
+  eglibc=eglibc-2.13
+  linux=linux-3.0.45
+  target=arm-none-linux-gnueabi
+  linux_arch=arm or mips
+  ------------------------------------------------
+
+

@@ -9,16 +9,19 @@ binutils=binutils-2.21.1
 gcc=gcc-4.5.3
 eglibc=eglibc-2.13
 linux=linux-3.0.45
+
+# target architecture info
+target=arm-none-linux-gnueabi
+tools=$worktop/arm-built-from-src
+linux_arch=arm
+
  
 # constant variables
 tarballtop=$(pwd)
 worktop=$(pwd)
-tools=$worktop/arm-built-from-src
-target=arm-none-linux-gnueabi
 sysroot=$tools/$target/libc
-linux_arch=arm
-patch_eglibc_cygwin=$tarballtop/cygwin-make-patch_eglibc-2.13.patch
- 
+patch_eglibc_cygwin=$(pwd)/cygwin-make-patch_eglibc-2.13.patch
+parallel_compile=-j
  
 # special parameters for cygwin
 gcc_cygwin_params=
@@ -29,6 +32,7 @@ case `uname` in
     gcc_cygwin_params="MAKEINFO=missing"
     gcc_step3_cygwin_params="--disable-libstdcxx-pch"
     is_cygwin=true
+    parallel_compile=
     ;;
   *)
     ;;
@@ -144,7 +148,7 @@ install_binutils () {
         --target=$target \
         --prefix=$tools \
         --with-sysroot=$sysroot
-    make
+    make $parallel_compile
     make install
  
     cd $worktop
@@ -172,7 +176,7 @@ install_gcc1 () {
         --enable-languages=c \
         $gcc_cygwin_params
 
-    PATH=$tools/bin:$PATH make
+    PATH=$tools/bin:$PATH make $parallel_compile
     PATH=$tools/bin:$PATH make install
  
     cd $worktop
@@ -251,7 +255,7 @@ install_gcc2 () {
         --enable-languages=c \
         $gcc_cygwin_params
 
-    PATH=$tools/bin:$PATH make
+    PATH=$tools/bin:$PATH make $parallel_compile
     PATH=$tools/bin:$PATH make install
  
     cd $worktop
@@ -270,7 +274,7 @@ install_eglibc () {
     if [ "$is_cygwin" == true ]; then
       pushd .
       cd $srcdir
-      patch -p1 -u < $(patch_eglibc_cygwin)
+      patch -p1 -u < $patch_eglibc_cygwin
       popd
     fi
 
@@ -287,7 +291,7 @@ install_eglibc () {
         --with-headers=$sysroot/usr/include \
         --host=$target \
         --disable-profile --without-gd --without-cvs --enable-add-ons
-    PATH=$tools/bin:$PATH make
+    PATH=$tools/bin:$PATH make $parallel_compile
     PATH=$tools/bin:$PATH make install install_root=$sysroot
  
     cd $worktop
@@ -304,6 +308,7 @@ install_gcc3 () {
     gcc_prerequisites $srcdir
     mkdir -p $objdir
     cd $objdir
+
  
     $worktop/$srcdir/configure \
         --target=$target \
@@ -314,7 +319,8 @@ install_gcc3 () {
         --enable-languages=c,c++ \
         $gcc_step3_cygwin_params \
         $gcc_cygwin_params
-    make 
+
+    make $parallel_compile
     make install
  
     cd $worktop
