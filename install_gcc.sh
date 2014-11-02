@@ -17,15 +17,18 @@ tools=$worktop/arm-built-from-src
 target=arm-none-linux-gnueabi
 sysroot=$tools/$target/libc
 linux_arch=arm
+patch_eglibc_cygwin=$tarballtop/cygwin-make-patch_eglibc-2.13.patch
  
  
 # special parameters for cygwin
 gcc_cygwin_params=
 gcc_step3_cygwin_params=
+is_cygwin=false
 case `uname` in
   CYGWIN*) 
     gcc_cygwin_params="MAKEINFO=missing"
     gcc_step3_cygwin_params="--disable-libstdcxx-pch"
+    is_cygwin=true
     ;;
   *)
     ;;
@@ -41,6 +44,11 @@ msg () {
     echo ";"
     echo ";"
 }
+
+makeabspath() {
+  echo $(cd $(dirname $1) && pwd)/$(basename $1)
+}
+
  
 usage () {
  
@@ -259,10 +267,12 @@ install_eglibc () {
     unpack $srcdir
     mv $srcdir/ports $srcdir/libc
 
-    pushd .
-    cd $srcdir
-    patch -p1 -u < ../cygwin-make-patch_eglibc-2.13.patch
-    popd
+    if [ "$is_cygwin" == true ]; then
+      pushd .
+      cd $srcdir
+      patch -p1 -u < $(patch_eglibc_cygwin)
+      popd
+    fi
 
     mkdir -p $objdir
     cd $objdir
@@ -317,8 +327,8 @@ set -e
 # process options
 while [ $# -gt 0 ] ; do
     case "$1" in
-        -t) optcheck $1 $2; shift; tarballtop=$1 ;;
-        -w) optcheck $1 $2; shift; worktop=$1 ;;
+        -t) shift; tarballtop=$(makeabspath $1);;
+        -w) shift; worktop=$(makeabspath $1 );;
         -T) optcheck $1 $2; shift; tools=$1; sysroot=$tools/$target/libc ;;
         -*) (echo error: $1: unknown option ; echo ) >&2 ; usage ; exit 1 ;;
         *) break;;
@@ -328,6 +338,10 @@ done
  
 if [ $# -eq 0 ] ; then
     set all
+fi
+
+if [ ! -e $worktop ]; then
+  mkdir -p $worktop
 fi
  
 # process targets
