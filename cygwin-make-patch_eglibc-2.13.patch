@@ -1,0 +1,382 @@
+diff -ur eglibc-2.13/libc/extra-lib.mk eglibc-2.13_modified/libc/extra-lib.mk
+--- eglibc-2.13/libc/extra-lib.mk	2014-11-01 14:20:27.000000000 +0900
++++ eglibc-2.13_modified/libc/extra-lib.mk	2014-11-02 12:01:07.771091900 +0900
+@@ -13,7 +13,7 @@
+ 
+ ifneq (,$($(lib)-static-only-routines))
+ ifneq (,$(filter yesyes%,$(build-shared)$(elf)$($(lib).so-version)))
+-object-suffixes-$(lib) += $(filter-out $($(lib)-inhibit-o),.oS)
++object-suffixes-$(lib) += $(filter-out $($(lib)-inhibit-o),.oST)
+ endif
+ endif
+ 
+@@ -31,7 +31,7 @@
+ 
+ # Add each flavor of library to the lists of things to build and install.
+ install-lib += $(foreach o,$(object-suffixes-$(lib)),$(lib:lib%=$(libtype$o)))
+-extra-objs += $(foreach o,$(filter-out .os .oS,$(object-suffixes-$(lib))),\
++extra-objs += $(foreach o,$(filter-out .os .oST,$(object-suffixes-$(lib))),\
+ 			$(patsubst %,%$o,$(filter-out \
+ 					   $($(lib)-shared-only-routines),\
+ 					   $(all-$(lib)-routines))))
+@@ -59,7 +59,7 @@
+ 
+ 
+ # Use o-iterator.mk to generate a rule for each flavor of library.
+-ifneq (,$(filter-out .os .oS,$(object-suffixes-$(lib))))
++ifneq (,$(filter-out .os .oST,$(object-suffixes-$(lib))))
+ define o-iterator-doit
+ $(objpfx)$(patsubst %,$(libtype$o),$(lib:lib%=%)): \
+   $(patsubst %,$(objpfx)%$o,\
+@@ -67,7 +67,7 @@
+ 			  $(all-$(lib)-routines))); \
+ 	$$(build-extra-lib)
+ endef
+-object-suffixes-left = $(filter-out .os .oS,$(object-suffixes-$(lib)))
++object-suffixes-left = $(filter-out .os .oST,$(object-suffixes-$(lib)))
+ include $(patsubst %,$(..)o-iterator.mk,$(object-suffixes-left))
+ endif
+ 
+@@ -79,9 +79,9 @@
+ 	$(build-extra-lib)
+ endif
+ 
+-ifneq (,$(filter .oS,$(object-suffixes-$(lib))))
+-$(objpfx)$(patsubst %,$(libtype.oS),$(lib:lib%=%)): \
+-  $(patsubst %,$(objpfx)%.oS,\
++ifneq (,$(filter .oST,$(object-suffixes-$(lib))))
++$(objpfx)$(patsubst %,$(libtype.oST),$(lib:lib%=%)): \
++  $(patsubst %,$(objpfx)%.oST,\
+ 	     $(filter $($(lib)-static-only-routines),\
+ 		      $(all-$(lib)-routines)))
+ 	$(build-extra-lib)
+@@ -104,3 +104,4 @@
+ endif
+ 
+ CPPFLAGS-$(lib) := -DNOT_IN_libc=1 -DIS_IN_$(lib)=1
++
+diff -ur eglibc-2.13/libc/Makeconfig eglibc-2.13_modified/libc/Makeconfig
+--- eglibc-2.13/libc/Makeconfig	2014-11-01 14:20:19.000000000 +0900
++++ eglibc-2.13_modified/libc/Makeconfig	2014-11-02 12:00:34.385753700 +0900
+@@ -492,7 +492,7 @@
+ # run the linked programs.
+ link-libc = -Wl,-rpath-link=$(rpath-link) \
+ 	    $(common-objpfx)libc.so$(libc.so-version) \
+-	    $(common-objpfx)$(patsubst %,$(libtype.oS),c) \
++	    $(common-objpfx)$(patsubst %,$(libtype.oST),c) \
+ 	    $(as-needed) $(common-objpfx)elf/ld.so $(no-as-needed) $(gnulib)
+ # This is how to find at build-time things that will be installed there.
+ rpath-dirs = math elf dlfcn nss nis rt resolv crypt
+@@ -724,7 +724,7 @@
+ # The compilation rules use $(CPPFLAGS-${SUFFIX}) and $(CFLAGS-${SUFFIX})
+ # to pass different flags for each flavor.
+ libtypes = $(foreach o,$(object-suffixes-for-libc),$(libtype$o))
+-all-object-suffixes := .o .os .op .og .ob .oS
++all-object-suffixes := .o .os .op .og .ob .oST
+ object-suffixes :=
+ CPPFLAGS-.o = $(pic-default)
+ CFLAGS-.o = $(filter %frame-pointer,$(+cflags))
+@@ -784,14 +784,14 @@
+ 
+ ifeq (yes,$(build-shared))
+ # Build special library that contains the static-only routines for libc.
+-object-suffixes-for-libc += .oS
++object-suffixes-for-libc += .oST
+ 
+ # Must build the routines as PIC, though, because they can end up in (users')
+ # shared objects.  We don't want to use CFLAGS-os because users may, for
+ # example, make that processor-specific.
+-CFLAGS-.oS = $(CFLAGS-.o) $(PIC-ccflag)
+-CPPFLAGS-.oS = $(CPPFLAGS-.o) -DPIC -DLIBC_NONSHARED=1
+-libtype.oS = lib%_nonshared.a
++CFLAGS-.oST = $(CFLAGS-.o) $(PIC-ccflag)
++CPPFLAGS-.oST = $(CPPFLAGS-.o) -DPIC -DLIBC_NONSHARED=1
++libtype.oST = lib%_nonshared.a
+ endif
+ 
+ # The assembler can generate debug information too.
+diff -ur eglibc-2.13/libc/Makerules eglibc-2.13_modified/libc/Makerules
+--- eglibc-2.13/libc/Makerules	2014-11-01 14:20:26.000000000 +0900
++++ eglibc-2.13_modified/libc/Makerules	2014-11-02 12:01:01.635478400 +0900
+@@ -440,7 +440,7 @@
+ # Bounded pointer thunks are only built for *.ob
+ elide-bp-thunks = $(addprefix $(bppfx),$(bp-thunks))
+ 
+-elide-routines.oS += $(filter-out $(static-only-routines),\
++elide-routines.oST += $(filter-out $(static-only-routines),\
+ 				  $(routines) $(aux) $(sysdep_routines)) \
+ 		     $(elide-bp-thunks)
+ elide-routines.os += $(static-only-routines) $(elide-bp-thunks)
+@@ -1033,7 +1033,7 @@
+ install: $(inst_libdir)/libc.so
+ $(inst_libdir)/libc.so: $(common-objpfx)format.lds \
+ 			$(common-objpfx)libc.so$(libc.so-version) \
+-			$(inst_libdir)/$(patsubst %,$(libtype.oS),\
++			$(inst_libdir)/$(patsubst %,$(libtype.oST),\
+ 						  $(libprefix)$(libc-name)) \
+ 			$(+force)
+ 	(echo '/* GNU ld script';\
+@@ -1041,7 +1041,7 @@
+ 	 echo '   the static library, so try that secondarily.  */';\
+ 	 cat $<; \
+ 	 echo 'GROUP ( $(slibdir)/libc.so$(libc.so-version)' \
+-	      '$(libdir)/$(patsubst %,$(libtype.oS),$(libprefix)$(libc-name))'\
++	      '$(libdir)/$(patsubst %,$(libtype.oST),$(libprefix)$(libc-name))'\
+ 	      ' AS_NEEDED (' $(slibdir)/$(rtld-installed-name) ') )' \
+ 	) > $@.new
+ 	mv -f $@.new $@
+diff -ur eglibc-2.13/libc/sunrpc/Makefile eglibc-2.13_modified/libc/sunrpc/Makefile
+--- eglibc-2.13/libc/sunrpc/Makefile	2014-11-01 14:20:57.000000000 +0900
++++ eglibc-2.13_modified/libc/sunrpc/Makefile	2014-11-02 12:01:20.035318200 +0900
+@@ -138,6 +138,23 @@
+ 
+ include ../Rules
+ 
++OS?= $(shell uname)
++ifeq	($(OS),Darwin)
++CROSSRPCLDFLAGS=-L/opt/local/lib -lintl
++endif
++ifneq	(,$(findstring Windows_NT,$(OS)))
++# cygwin!
++CROSSRPCLDFLAGS=-L/usr/lib -lintl -liberty
++endif
++ifneq	(,$(findstring CYGWIN_NT,$(OS)))
++# cygwin!
++CROSSRPCLDFLAGS=-L/usr/lib -lintl -liberty
++endif
++ifeq	($(OS),FreeBSD)
++CROSSRPCLDFLAGS=-L/usr/local/lib -lintl
++endif
++
++
+ $(objpfx)rpcgen: $(addprefix $(objpfx),$(rpcgen-objs)) \
+   $(sort $(filter $(common-objpfx)libc%,$(link-libc))) \
+   $(addprefix $(csu-objpfx),start.o) $(+preinit) $(+postinit)
+@@ -148,7 +165,7 @@
+ 		$(OUTPUT_OPTION) $(compile-mkdep-flags)
+ 
+ $(objpfx)cross-rpcgen: $(addprefix $(objpfx)cross-,$(rpcgen-objs))
+-	gcc $^ -o $@
++	gcc $^ $(CROSSRPCLDFLAGS) -o $@
+ 
+ # This makes sure -DNOT_IN_libc is passed for all these modules.
+ cpp-srcs-left := $(rpcgen-objs:.o=.c)
+@@ -214,3 +231,4 @@
+ endif
+ 
+ $(objpfx)thrsvc: $(shared-thread-library)
++
+diff -ur eglibc-2.13/libc/sunrpc/rpc/types.h eglibc-2.13_modified/libc/sunrpc/rpc/types.h
+--- eglibc-2.13/libc/sunrpc/rpc/types.h	2014-11-01 14:20:57.000000000 +0900
++++ eglibc-2.13_modified/libc/sunrpc/rpc/types.h	2014-11-02 12:06:46.479959400 +0900
+@@ -69,6 +69,7 @@
+ #include <sys/types.h>
+ #endif
+ 
++/* 
+ #ifndef __u_char_defined
+ typedef __u_char u_char;
+ typedef __u_short u_short;
+@@ -84,6 +85,7 @@
+ typedef __caddr_t caddr_t;
+ # define __daddr_t_defined
+ #endif
++*/
+ 
+ #include <sys/time.h>
+ #include <sys/param.h>
+diff -ur eglibc-2.13/libc/sunrpc/rpc_clntout.c eglibc-2.13_modified/libc/sunrpc/rpc_clntout.c
+--- eglibc-2.13/libc/sunrpc/rpc_clntout.c	2014-11-01 14:20:57.000000000 +0900
++++ eglibc-2.13_modified/libc/sunrpc/rpc_clntout.c	2014-11-02 12:06:53.232634600 +0900
+@@ -31,7 +31,7 @@
+  */
+ #include <stdio.h>
+ #include <string.h>
+-#include <rpc/types.h>
++#include "rpc/types.h"
+ #include "rpc_parse.h"
+ #include "rpc_util.h"
+ #include "proto.h"
+diff -ur eglibc-2.13/libc/timezone/Makefile eglibc-2.13_modified/libc/timezone/Makefile
+--- eglibc-2.13/libc/timezone/Makefile	2014-11-01 14:20:32.000000000 +0900
++++ eglibc-2.13_modified/libc/timezone/Makefile	2014-11-02 12:01:38.364150900 +0900
+@@ -21,23 +21,19 @@
+ #
+ subdir	:= timezone
+ 
+-distribute := tzfile.h private.h scheck.c ialloc.c yearistype	\
+-	      iso3166.tab zone.tab tzselect.ksh checktab.awk	\
+-	      README
+ 
+ extra-objs := scheck.o ialloc.o
+ 
+ others	:= zdump zic
+ tests	:= test-tz tst-timezone
+ 
++# pacificnew doesn't compile; if it is to be used, it should be included in
++# northamerica.
+ tzbases := africa antarctica asia australasia europe northamerica \
+ 	   southamerica etcetera factory \
+ 	   solar87 solar88 solar89
+ tzlinks := backward systemv
+ tzfiles := $(tzbases) $(tzlinks)
+-# pacificnew doesn't compile; if it is to be used, it should be included in
+-# northamerica.
+-distribute += $(tzfiles) leapseconds pacificnew simplebackw
+ 
+ generated := $(addprefix z.,$(tzfiles))
+ install-sbin := zic zdump
+@@ -50,32 +46,9 @@
+ 
+ CPPFLAGS-zic = -DNOT_IN_libc
+ 
+-# z.* use this variable.
+-define nl
+-
+-
+-endef
+-ifndef avoid-generated
+-ifndef inhibit_timezone_rules
+--include $(addprefix $(objpfx)z.,$(tzfiles))
+-endif
+-endif
+ 
+-# Make these absolute file names.
+-installed-localtime-file := $(firstword $(filter /%,$(inst_localtime-file)) \
+-					$(addprefix $(inst_zonedir)/, \
+-						    $(localtime-file)))
+-installed-posixrules-file := $(firstword $(filter /%,$(posixrules-file)) \
+-					 $(addprefix $(inst_zonedir)/, \
+-						     $(posixrules-file)))
+-
+-install-others = $(addprefix $(inst_zonedir)/,$(zonenames) \
+-					      $(zonenames:%=posix/%) \
+-					      $(zonenames:%=right/%)) \
+-		 $(installed-localtime-file) $(installed-posixrules-file)
+ 
+ ifeq ($(have-ksh),yes)
+-install-others += $(inst_zonedir)/iso3166.tab $(inst_zonedir)/zone.tab
+ install-bin-script = tzselect
+ generated += tzselect
+ endif
+@@ -83,109 +56,16 @@
+ include ../Rules
+ 
+ 
+-$(tzfiles:%=$(objpfx)z.%): $(objpfx)z.%: % Makefile
+-# Kludge alert: we use an implicit rule (in what we are generating here)
+-# because that is the only way to tell Make that the one command builds all
+-# the files.
+-# The extra kludge for the $(tzlinks) files is necessary since running zic
+-# this file requires all other files to exist.  Blech!
+-	$(make-target-directory)
+-	(echo 'define $*-zones'						    ;\
+-	 $(AWK) '$$1 == "Zone" { print $$2 } $$1 == "Link" { print $$3 }' $^ ;\
+-	 echo 'endef'							    ;\
+-	 echo '$*-zones := $$(subst $$(nl), ,$$($*-zones))'		    ;\
+-	 echo 'ifdef $*-zones'						    ;\
+-	 if test x$(findstring $*, $(tzlinks)) != x; then		     \
+-	   echo '$$(addprefix $$(inst_zonedir)/right/,$$($*-zones)): \';\
+-	   echo '$$(foreach t,$$(tzbases),$$(addprefix $$(inst_zonedir)/right/,$$($$t-zones)))' ;\
+-	   echo '$$(addprefix $$(inst_zonedir)/posix/,$$($*-zones)): \';\
+-	   echo '$$(foreach t,$$(tzbases),$$(addprefix $$(inst_zonedir)/posix/,$$($$t-zones)))' ;\
+-	   echo '$$(addprefix $$(inst_zonedir)/,$$($*-zones)): \'	    ;\
+-	   echo '$$(foreach t,$$(tzbases),$$(addprefix $$(inst_zonedir)/,$$($$t-zones)))' ;\
+-	 fi								    ;\
+-	 echo '$$(addprefix $$(dir $$(inst_zonedir))zone%/right/,$$($*-zones)): \' ;) > $@.new
+-
+-ifeq (no,$(cross-compiling))
+-	(echo '$< $$(objpfx)zic leapseconds yearistype'			    ;) >> $@.new
+-else
+-	(echo '$< $$(objpfx)cross-zic leapseconds yearistype'		    ;) >> $@.new
+-endif
+-
+-	(echo '	$$(tzcompile)'						    ;\
+-	 echo '$$(addprefix $$(dir $$(inst_zonedir))zone%/posix/,$$($*-zones)): \' ;) >> $@.new
+-
+-ifeq (no,$(cross-compiling))
+-	(echo '$< $$(objpfx)zic /dev/null yearistype'			    ;) >> $@.new
+-else
+-	(echo '$< $$(objpfx)cross-zic /dev/null yearistype'		    ;) >> $@.new
+-endif
+-
+-	(echo '	$$(tzcompile)'						    ;\
+-	 echo '$$(addprefix $$(dir $$(inst_zonedir))zone%/,$$($*-zones)): \' ;) >> $@.new
+-
+-ifeq (no,$(cross-compiling))
+-	(echo '$< $$(objpfx)zic $$(leapseconds) yearistype'		    ;) >> $@.new
+-else
+-	(echo '$< $$(objpfx)cross-zic $$(leapseconds) yearistype'	    ;) >> $@.new
+-endif
+-
+-	(echo '	$$(tzcompile)'						    ;\
+-	 echo 'endif'							    ;\
+-	 echo 'zonenames := $$(zonenames) $$($*-zones)'			    ;) >> $@.new
+-	mv $@.new $@
+-
+-.PHONY: echo-zonenames
+-echo-zonenames:
+-	@echo 'Known zones: $(zonenames)'
+-
+-
+-# We have to use `-d $(inst_zonedir)' to explictly tell zic where to
+-# place the output files although $(zonedir) is compiled in.  But the
+-# user might have set $(install_root) on the command line of `make install'.
+-ifeq (no,$(cross-compiling))
+-zic-cmd = $(built-program-cmd) -d $(inst_zonedir)
+-else
+-zic-cmd = $(objpfx)cross-zic -d $(inst_zonedir)
+-endif
+-tzcompile = $(zic-cmd)$(target-zone-flavor) -L $(word 3,$^) \
+-	    -y $(dir $(word 4,$^))$(notdir $(word 4,$^)) $<
+-
+-# The source files specify the zone names relative to the -d directory,
+-# so for the posix/ and right/ flavors we need to pass -d $(inst_zonedir)/posix
+-# and the like.  This magic extracts /posix or /right if it's the first
+-# component after $(inst_zonedir) in the target name $@.
+-target-zone-flavor = $(filter /posix /right, \
+-			      /$(firstword $(subst /, , \
+-					  $(patsubst $(inst_zonedir)/%,%,$@))))
+-
+-ifdef localtime
+-$(installed-localtime-file): $(inst_zonedir)/$(localtime) $(objpfx)zic \
+-			     $(+force)
+-	$(make-target-directory)
+-	if test -r $@; then \
+-	  echo Site timezone NOT reset to Factory.; \
+-	else \
+-	  rm -f $@T; \
+-	  $(SHELL) $(..)scripts/rellns-sh $< $@T; \
+-	  mv -f $@T $@; \
+-	fi
+-endif
+-ifdef posixrules
+-$(installed-posixrules-file): $(inst_zonedir)/$(posixrules) $(objpfx)zic \
+-			      $(+force)
+-	$(zic-cmd) -p $(posixrules)
+-endif
+-
+ zic-objs = zic.o ialloc.o scheck.o
+ 
+ $(objpfx)zic: $(addprefix $(objpfx), $(zic-objs))
+ 
+ $(addprefix $(objpfx)cross-,$(zic-objs)): $(objpfx)cross-%.o: %.c
+-	gcc $< -c $(OUTPUT_OPTION) $(CFLAGS-$*.c) $(CPPFLAGS-$*) \
+-		-DCROSS_ZIC $(compile-mkdep-flags)
++	$(BUILD_CC) $< -c $(OUTPUT_OPTION) $(CFLAGS-$*.c) $(CPPFLAGS-$*) \
++ 		-DCROSS_ZIC $(compile-mkdep-flags)
+ 
+ $(objpfx)cross-zic: $(addprefix $(objpfx)cross-,$(zic-objs))
+-	gcc $(addprefix $(objpfx)cross-,$(zic-objs)) -o $@
++	$(BUILD_CC) $(addprefix $(objpfx)cross-,$(zic-objs)) -o $@
+ 
+ tz-cflags = -DTZDIR='"$(zonedir)"' \
+ 	    -DTZDEFAULT='"$(localtime-file)"' \
+@@ -257,6 +137,4 @@
+ 	chmod 555 $@.new
+ 	mv -f $@.new $@
+ 
+-$(addprefix $(inst_zonedir)/,iso3166.tab zone.tab): \
+-    $(inst_zonedir)/%: % $(+force)
+-	$(do-install)
++
